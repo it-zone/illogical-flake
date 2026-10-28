@@ -1,0 +1,49 @@
+name: Bump quickshell
+
+on:
+  schedule:
+    # Sundays at 04:17 UTC (odd minute to avoid the GitHub Actions top-of-hour stampede)
+    - cron: "17 4 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: bump-quickshell
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: cachix/install-nix-action@v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Update quickshell input
+        run: nix flake update quickshell
+
+      - name: Create pull request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: chore/bump-quickshell
+          commit-message: "chore: bump quickshell input"
+          title: "chore: bump quickshell input"
+          body: |
+            Automated `nix flake update quickshell`.
+
+            Please verify before merging:
+
+            - The quickshell build still succeeds (Qt 6.12 compatible).
+            - `home-modules/qt.nix` still works: it relies on the `unwrapped`
+              passthru and on `overrideAttrs` adding `-DSERVICE_POLKIT=ON`.
+              If upstream changes the `default.nix` layout, polkit support
+              would be silently dropped.
+          delete-branch: true
+          labels: dependencies
